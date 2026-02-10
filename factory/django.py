@@ -167,12 +167,20 @@ class DjangoModelFactory(base.Factory[T]):
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
-        """Create an instance of the model, and save it to the database."""
         if cls._meta.django_get_or_create:
             return cls._get_or_create(model_class, *args, **kwargs)
 
+        import django
+
+        if django.VERSION >= (6, 0):
+            obj = model_class(*args, **kwargs)
+            obj.save(force_insert=True)
+            return obj
+
         manager = cls._get_manager(model_class)
         return manager.create(*args, **kwargs)
+
+
 
     # DEPRECATED. Remove this override with the next major release.
     @classmethod
