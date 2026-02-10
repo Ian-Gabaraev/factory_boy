@@ -125,6 +125,8 @@ class DjangoModelFactory(base.Factory[T]):
     def _get_or_create(cls, model_class, *args, **kwargs):
         import django
 
+        manager = cls._get_manager(model_class)
+
         if django.VERSION >= (6, 0):
             lookup = {}
             defaults = {}
@@ -135,11 +137,25 @@ class DjangoModelFactory(base.Factory[T]):
                 else:
                     defaults[key] = value
 
-            obj, _ = model_class.objects.get_or_create(
-                **lookup,
-                defaults=defaults,
-            )
-            return obj
+            try:
+                obj, _ = manager.get_or_create(
+                    *args,
+                    **lookup,
+                    defaults=defaults,
+                )
+                return obj
+            except IntegrityError as e:
+                # Preserve upstream retry semantics
+                if cls._original_params is None:
+                    raise
+
+                retry_lookup = {
+                    k: v for k, v in cls._original_params.items()
+                    if k in cls._meta.django_get_or_create
+                }
+                if retry_lookup:
+                    return manager.get(**retry_lookup)
+                raise
 
         """Create an instance of the model through objects.get_or_create."""
         manager = cls._get_manager(model_class)
