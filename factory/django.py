@@ -123,6 +123,24 @@ class DjangoModelFactory(base.Factory[T]):
 
     @classmethod
     def _get_or_create(cls, model_class, *args, **kwargs):
+        import django
+
+        if django.VERSION >= (6, 0):
+            lookup = {}
+            defaults = {}
+
+            for key, value in kwargs.items():
+                if key in cls._meta.django_get_or_create:
+                    lookup[key] = value
+                else:
+                    defaults[key] = value
+
+            obj, _ = model_class.objects.get_or_create(
+                **lookup,
+                defaults=defaults,
+            )
+            return obj
+
         """Create an instance of the model through objects.get_or_create."""
         manager = cls._get_manager(model_class)
 
